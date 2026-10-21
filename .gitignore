@@ -1,0 +1,15 @@
+node_modules
+dist
+dist-ssr
+*.local
+.vite
+.DS_Store
+*.log
+.claude/worktrees
+.wrangler
+.dev.vars
+
+# brag video working files (frames, raw footage)
+brag-output/work/
+brag-output/composition/assets/clip.mp4
+.claude/settings.local.json

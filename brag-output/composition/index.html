@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>UNBLOCK launch video</title>
+<style>
+  @font-face { font-family: 'Instrument Sans'; src: url(assets/instrument-sans-latin-wght-normal.woff2) format('woff2'); font-weight: 400 700; }
+  @font-face { font-family: 'Geist'; src: url(assets/geist-latin-wght-normal.woff2) format('woff2'); font-weight: 100 900; }
+  :root { --bg: #04070c; --ink: #eaf0f7; --ink2: #aab6c6; --cyan: #4fd1e8; --em: #34d399; --red: #ff6a4d; }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: var(--bg); color: var(--ink); font-family: 'Geist', sans-serif; }
+  #stage { position: absolute; inset: 0; overflow: hidden; }
+  #vidwrap { position: absolute; inset: 0; transform-origin: 50% 50%; }
+  video { position: absolute; inset: 0; width: 1920px; height: 1080px; object-fit: cover; }
+  #shade { position: absolute; inset: 0; background: var(--bg); }
+  .vignette { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(120% 90% at 50% 45%, transparent 55%, rgba(2, 4, 8, 0.65)); }
+  .layer { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; }
+  .hook { font-family: 'Instrument Sans'; font-weight: 600; letter-spacing: -0.03em; text-align: center; }
+  .hook .l1 { font-size: 112px; line-height: 1.02; }
+  .hook .l2 { font-size: 112px; line-height: 1.02; color: var(--red); margin-top: 18px; }
+  .brand img { width: 220px; height: 220px; filter: drop-shadow(0 0 60px rgba(79, 209, 232, 0.45)); }
+  .brand .word { font-family: 'Instrument Sans'; font-weight: 600; font-size: 132px; letter-spacing: 0.02em; margin-top: 26px; line-height: 1; }
+  .brand .tag { font-size: 46px; color: var(--ink2); margin-top: 22px; letter-spacing: -0.01em; }
+  .brand .tag b { color: var(--cyan); font-weight: 500; }
+  .cap { position: absolute; left: 50%; bottom: 74px; transform: translateX(-50%); padding: 26px 44px; border-radius: 26px; background: rgba(6, 10, 16, 0.86); border: 1px solid rgba(148, 172, 204, 0.22); box-shadow: 0 30px 80px -20px rgba(0, 0, 0, 0.8); backdrop-filter: blur(14px); white-space: nowrap; font-family: 'Instrument Sans'; font-weight: 600; font-size: 60px; letter-spacing: -0.02em; opacity: 0; }
+  .cap.top { bottom: auto; top: 70px; }
+  .cap .hi { color: var(--cyan); }
+  .cap .ok { color: var(--em); }
+  .cap .bad { color: var(--red); }
+  .outro .url { margin-top: 30px; font-size: 44px; color: var(--cyan); letter-spacing: -0.01em; }
+  .outro .fine { position: absolute; bottom: 64px; font-size: 26px; color: #6f7d8f; }
+  #flash { position: absolute; inset: 0; background: #fff; opacity: 0; mix-blend-mode: overlay; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="vidwrap"><video id="v" src="assets/clip.mp4" muted preload="auto"></video></div>
+  <div class="vignette"></div>
+  <div id="shade"></div>
+
+  <div class="layer hook" id="hook">
+    <div class="l1" id="h1">The hospital is 600 m away.</div>
+    <div class="l2" id="h2">Unless you use a wheelchair.</div>
+  </div>
+
+  <div class="layer brand" id="brand">
+    <img src="assets/logo.png" alt="" id="logo" />
+    <div class="word" id="word">UNBLOCK</div>
+    <div class="tag" id="tag">Fix one sidewalk. <b>Unlock a neighbourhood.</b></div>
+  </div>
+
+  <div class="cap" id="c3">One flight of stairs. <span class="bad">A 1.7 km detour.</span></div>
+  <div class="cap" id="c4">Repair it on the map first. <span class="ok">600 m again.</span></div>
+  <div class="cap" id="c5">Fix one crossing. Hospital access <span class="hi">62%</span> → <span class="ok">73%</span></div>
+  <div class="cap top" id="c6">Same budget. <span class="ok">More access</span> than cheapest-first.</div>
+  <div class="cap" id="c7"><span class="ok">59 more homes</span> can now reach a hospital.</div>
+
+  <div class="layer brand outro" id="outro">
+    <img src="assets/logo.png" alt="" id="logo2" />
+    <div class="word" id="word2">UNBLOCK</div>
+    <div class="url" id="url">unblock.kanbanstudios.ae</div>
+    <div class="fine" id="fine">Pilot: real Abu Dhabi streets from OpenStreetMap. Barriers and repair costs are made-up data.</div>
+  </div>
+  <div id="flash"></div>
+</div>
+
+<script>
+  const DURATION = 21.4;
+  const FPS = 30;
+  const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+  const easeOut = (u) => 1 - Math.pow(1 - clamp(u), 3);
+  const easeInOut = (u) => { u = clamp(u); return u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2; };
+  const back = (u) => { u = clamp(u); const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(u - 1, 3) + c1 * Math.pow(u - 1, 2); };
+  // fade in over [a, a+d], out over [b-d2, b]
+  const window01 = (t, a, b, d = 0.3, d2 = 0.25) => Math.min(easeOut((t - a) / d), 1 - clamp((t - (b - d2)) / d2));
+
+  /* footage per scene: [start, end, clip time at start, speed, zoom {s, ox, oy}] */
+  const SHOTS = [
+    { a: 0, b: 2.9, clip: 0.8, speed: 0.6, zoom: [1.12, 1.18], origin: '55% 40%', dim: 0.72, blur: 6 },
+    { a: 5.4, b: 7.8, clip: 4.7, speed: 1, zoom: [1.0, 1.08], origin: '52% 38%' },
+    { a: 7.8, b: 10.3, clip: 8.2, speed: 1, zoom: [1.0, 1.05], origin: '30% 45%' },
+    { a: 10.3, b: 14.0, clip: 19.2, speed: 1, zoom: [1.0, 1.06], origin: '50% 45%' },
+    { a: 14.0, b: 16.4, clip: 25.9, speed: 1, zoom: [1.9, 2.02], origin: '98% 99%' },
+    { a: 16.4, b: 18.6, clip: 28.5, speed: 1, zoom: [1.04, 1.0], origin: '50% 50%' },
+  ];
+
+  const $ = (id) => document.getElementById(id);
+  const v = $('v');
+
+  function seek(time) {
+    return new Promise((res) => {
+      if (Math.abs(v.currentTime - time) < 1e-4) return res();
+      const done = () => { v.removeEventListener('seeked', done); requestAnimationFrame(() => res()); };
+      v.addEventListener('seeked', done);
+      v.currentTime = time;
+    });
+  }
+
+  async function renderAt(t) {
+    // ---- footage ----
+    const shot = SHOTS.find((s) => t >= s.a && t < s.b);
+    let shade = 1;
+    if (shot) {
+      const u = (t - shot.a) / (shot.b - shot.a);
+      await seek(shot.clip + (t - shot.a) * shot.speed);
+      const z = shot.zoom[0] + (shot.zoom[1] - shot.zoom[0]) * easeInOut(u);
+      const vw = $('vidwrap');
+      vw.style.transformOrigin = shot.origin;
+      vw.style.transform = `scale(${z})`;
+      vw.style.filter = shot.blur ? `blur(${shot.blur}px) saturate(0.8)` : 'none';
+      // dip through the background at every cut: in 0.22 s, out 0.18 s
+      const edge = Math.min(easeOut((t - shot.a) / 0.22), 1 - clamp((t - (shot.b - 0.18)) / 0.18));
+      shade = 1 - edge * (1 - (shot.dim ?? 0));
+    }
+    $('shade').style.opacity = shade.toFixed(3);
+
+    // ---- hook ----
+    const hookO = 1 - clamp((t - 2.65) / 0.25);
+    $('hook').style.opacity = t < 2.9 ? hookO : 0;
+    const l1 = easeOut((t - 0.15) / 0.45), l2 = easeOut((t - 1.37) / 0.35);
+    $('h1').style.opacity = l1; $('h1').style.transform = `translateY(${(1 - l1) * 30}px)`;
+    $('h2').style.opacity = l2; $('h2').style.transform = `translateY(${(1 - l2) * 24}px) scale(${0.96 + 0.04 * l2})`;
+
+    // ---- brand reveal ----
+    const bo = t >= 2.9 && t < 5.4 ? window01(t, 2.95, 5.4, 0.2, 0.28) : 0;
+    $('brand').style.opacity = bo;
+    const lg = back((t - 3.0) / 0.55);
+    $('logo').style.transform = `scale(${0.6 + 0.4 * lg}) rotate(${(1 - clamp((t - 3.0) / 0.55)) * -8}deg)`;
+    const wd = easeOut((t - 3.28) / 0.45);
+    $('word').style.opacity = wd; $('word').style.transform = `translateY(${(1 - wd) * 26}px)`; $('word').style.letterSpacing = `${0.02 + (1 - wd) * 0.12}em`;
+    const tg = easeOut((t - 3.82) / 0.45);
+    $('tag').style.opacity = tg; $('tag').style.transform = `translateY(${(1 - tg) * 18}px)`;
+
+    // ---- captions ----
+    const caps = [['c3', 5.55, 7.8], ['c4', 7.95, 10.3], ['c5', 10.75, 14.0], ['c6', 14.3, 16.4], ['c7', 16.65, 18.6]];
+    for (const [id, a, b] of caps) {
+      const o = t >= a - 0.01 && t < b ? window01(t, a, b, 0.32, 0.2) : 0;
+      const el = $(id);
+      el.style.opacity = o;
+      el.style.transform = `translateX(-50%) translateY(${(1 - easeOut((t - a) / 0.32)) * 28}px)`;
+    }
+
+    // ---- outro ----
+    const oo = t >= 18.6 ? Math.min(easeOut((t - 18.62) / 0.3), 1 - clamp((t - 20.9) / 0.5)) : 0;
+    $('outro').style.opacity = oo;
+    const lg2 = back((t - 18.65) / 0.55);
+    $('logo2').style.transform = `scale(${0.7 + 0.3 * lg2})`;
+    const w2 = easeOut((t - 18.85) / 0.45);
+    $('word2').style.opacity = w2; $('word2').style.transform = `translateY(${(1 - w2) * 22}px)`;
+    const ur = easeOut((t - 19.2) / 0.4);
+    $('url').style.opacity = ur; $('url').style.transform = `translateY(${(1 - ur) * 16}px)`;
+    $('fine').style.opacity = easeOut((t - 19.45) / 0.4) * 0.95;
+
+    // a soft light pulse on the network moments
+    const flashAt = [10.38 + 0.0, 16.45];
+    $('flash').style.opacity = flashAt.reduce((m, f) => Math.max(m, t >= f ? Math.exp(-(t - f) * 6) * 0.18 : 0), 0).toFixed(3);
+  }
+
+  window.__comp = { DURATION, FPS, renderAt, ready: Promise.all([document.fonts.ready, new Promise((r) => (v.readyState >= 2 ? r() : v.addEventListener('loadeddata', r, { once: true })))]) };
+</script>
+</body>
+</html>

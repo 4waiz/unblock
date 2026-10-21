@@ -1,0 +1,20 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "unblock",
+  "account_id": "f8dc06dc6cc06ecfe499b2fdbcf45196",
+  "main": "worker/index.ts",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "routes": [{ "pattern": "unblock.kanbanstudios.ae", "custom_domain": true }],
+  "vars": {
+    "DASHSCOPE_BASE_URL": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
+    "QWEN_MODEL": "qwen3.8-flash"
+  },
+  // DASHSCOPE_API_KEY is a secret: npx wrangler secret put DASHSCOPE_API_KEY
+  "observability": { "enabled": true }
+}
