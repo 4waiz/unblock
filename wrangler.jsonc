@@ -11,6 +11,8 @@
     "run_worker_first": ["/api/*"]
   },
   "routes": [{ "pattern": "unblock.kanbanstudios.ae", "custom_domain": true }],
+  // also serve on unblock.kanbanstudios.workers.dev as a fallback address
+  "workers_dev": true,
   "vars": {
     "DASHSCOPE_BASE_URL": "https://token-plan.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1",
     "QWEN_MODEL": "qwen3.8-flash"
