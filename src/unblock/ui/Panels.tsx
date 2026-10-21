@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Accessibility, AlertTriangle, Check, ChevronDown, Footprints, Hammer, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
+import { Accessibility, AlertTriangle, Check, ChevronDown, Footprints, Hammer, Play, RotateCcw, Sparkles, Wand2 } from 'lucide-react';
 import { BARRIER_KIND, CATEGORY, SOURCE, formatAed, formatM, type Category } from '../engine';
 import { useUnblock, world, type Coverage } from '../store';
 
@@ -293,7 +293,8 @@ export function OptimizerPanel() {
   const plan = useUnblock((s) => s.plan);
   const planning = useUnblock((s) => s.planning);
   const runPlan = useUnblock((s) => s.runPlan);
-  const applyPlan = useUnblock((s) => s.applyPlan);
+  const simulate = useUnblock((s) => s.simulate);
+  const sim = useUnblock((s) => s.sim);
   const focus = useUnblock((s) => s.focus);
   const bi = Math.max(0, BUDGETS.indexOf(budget));
   const max = plan ? Math.max(plan.optimizer.gain, plan.baseline.gain, 1) : 1;
@@ -348,12 +349,13 @@ export function OptimizerPanel() {
           </p>
           <button
             className="ub-cta is-go"
+            disabled={!!sim && !sim.done}
             onClick={() => {
-              applyPlan(plan.optimizer.picks);
               focus(0, 0, 0);
+              simulate(plan.optimizer.picks);
             }}
           >
-            <Check size={14} /> Apply this plan to the map
+            <Play size={14} /> {sim && !sim.done ? 'Simulation running…' : 'Run the plan as a simulation'}
           </button>
         </div>
       )}

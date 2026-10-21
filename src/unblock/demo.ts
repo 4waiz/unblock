@@ -7,6 +7,7 @@ import { useUnblock, world } from './store';
  */
 export function playDemo() {
   const timers: number[] = [];
+  let cancelSim = () => {};
   const at = (s: number, fn: () => void) => timers.push(window.setTimeout(fn, s * 1000));
   const st = () => useUnblock.getState();
   const { story } = world;
@@ -49,20 +50,15 @@ export function playDemo() {
   at(29, () => {
     st().select(null);
     st().focus(0, 0, 0);
-    st().setBudget(250_000);
+    st().setBudget(500_000);
     st().runPlan();
   });
-  at(34, () => {
+  at(33, () => {
     const p = st().plan;
-    if (p) st().applyPlan(p.optimizer.picks);
+    if (p) cancelSim = st().simulate(p.optimizer.picks);
   });
-  at(39, () => {
-    st().setBudget(1_000_000);
-    st().runPlan();
-  });
-  at(44, () => {
-    const p = st().plan;
-    if (p) st().applyPlan(p.optimizer.picks);
-  });
-  return () => timers.forEach((t) => clearTimeout(t));
+  return () => {
+    timers.forEach((t) => clearTimeout(t));
+    cancelSim();
+  };
 }

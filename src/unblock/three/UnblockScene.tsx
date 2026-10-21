@@ -14,7 +14,7 @@ import { Effects } from '../../three/Effects';
 import { G } from '../../three/shaders/globals';
 import { runtime } from '../../simulation/runtime';
 import { AccessNetwork } from './AccessNetwork';
-import { Barriers, HomePin, JourneyRoutes, Places } from './Markers';
+import { Barriers, HomePin, JourneyRoutes, Places, RepairPulses } from './Markers';
 import { useUnblock, world } from '../store';
 
 /** Overview: the whole downtown, inland up, the Corniche at the bottom. */
@@ -128,6 +128,7 @@ export function UnblockScene({ quality }: { quality: 'high' | 'low' }) {
       <Diorama />
       <AccessNetwork />
       <JourneyRoutes />
+      <RepairPulses />
       <Barriers />
       <Places />
       <HomePin />

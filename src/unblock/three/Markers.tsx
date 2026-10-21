@@ -1,8 +1,8 @@
-import { useLayoutEffect, useMemo, useRef } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Html, Line } from '@react-three/drei';
-import { Color, CylinderGeometry, InstancedMesh, Matrix4, MeshBasicMaterial, OctahedronGeometry, Quaternion, Vector3 } from 'three';
-import { Accessibility, GraduationCap, Hospital, House, Landmark, ShoppingBag } from 'lucide-react';
+import { AdditiveBlending, Color, CylinderGeometry, DoubleSide, Group, InstancedMesh, Matrix4, Mesh, MeshBasicMaterial, OctahedronGeometry, Quaternion, RingGeometry, Vector3 } from 'three';
+import { Accessibility, Footprints, GraduationCap, Hospital, House, Landmark, ShoppingBag } from 'lucide-react';
 import { BARRIER_KIND, CATEGORY, SOURCE, type Category } from '../engine';
 import { useUnblock, world } from '../store';
 
@@ -52,7 +52,11 @@ export function Barriers() {
     pulse.current += dt;
     world.barriers.forEach((b, i) => {
       const on = b.id === selected || b.id === hover;
-      const s = on ? 1.45 + Math.sin(pulse.current * 5) * 0.08 : 1;
+      // a quick pop when a barrier gets repaired
+      const at = useUnblock.getState().repairedAt[b.id];
+      const age = at === undefined ? Infinity : performance.now() - at;
+      const pop = age < 650 ? 1 + 0.9 * Math.sin((Math.PI * age) / 650) : 1;
+      const s = (on ? 1.45 + Math.sin(pulse.current * 5) * 0.08 : 1) * pop;
       p.set(b.x, 0, b.z);
       sc.set(s, s, s);
       m.compose(p, q, sc);
@@ -168,20 +172,164 @@ const edgePts = (ids: number[], y: number, startNode: number) => {
 };
 
 /** Walking route (dashed) against the step-free route (solid) for the selected journey. */
+/** Polyline with cumulative lengths, for moving markers along a route at a steady speed. */
+function track(pts: [number, number, number][]) {
+  const cum = [0];
+  for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][2] - pts[i - 1][2]));
+  const at = (d: number, out: Vector3) => {
+    const L = cum[cum.length - 1];
+    d = Math.max(0, Math.min(L, d));
+    let i = 1;
+    while (i < cum.length - 1 && cum[i] < d) i++;
+    const seg = cum[i] - cum[i - 1] || 1;
+    const u = (d - cum[i - 1]) / seg;
+    return out.set(pts[i - 1][0] + (pts[i][0] - pts[i - 1][0]) * u, pts[i - 1][1], pts[i - 1][2] + (pts[i][2] - pts[i - 1][2]) * u);
+  };
+  return { length: cum[cum.length - 1], at };
+}
+
+/** Scene units per second: 1 unit = 10 m, so 300 m of route per second of animation. */
+const TRAVEL_SPEED = 30;
+
+/**
+ * Two travellers leave home together: someone walking takes the short route, someone in a wheelchair
+ * the step-free one. With stairs on the short route the walker's line ends there in a red pulse and the
+ * wheelchair goes the long way round. Loops.
+ */
+function Travellers({ walk, free, stopAt }: { walk: [number, number, number][]; free: [number, number, number][] | null; stopAt: number | null }) {
+  const chair = useRef<Group>(null);
+  const walker = useRef<Group>(null);
+  const halo = useRef<Mesh>(null);
+  const clock = useRef(0);
+  const tw = useMemo(() => track(walk), [walk]);
+  const tf = useMemo(() => (free ? track(free) : null), [free]);
+  const p = useMemo(() => new Vector3(), []);
+  useEffect(() => {
+    clock.current = 0;
+  }, [walk, free]);
+  useFrame((_, dt) => {
+    clock.current += Math.min(dt, 0.1);
+    const total = (tf ? tf.length : tw.length) / TRAVEL_SPEED + 1.4;
+    const t = clock.current % total;
+    const d = t * TRAVEL_SPEED;
+    if (chair.current && tf) chair.current.position.copy(tf.at(d, p)).setY(1.4);
+    if (walker.current) {
+      const lim = stopAt ?? tw.length;
+      walker.current.visible = stopAt !== null;
+      walker.current.position.copy(tw.at(Math.min(d, lim), p)).setY(1.2);
+      if (halo.current) {
+        const blocked = d >= lim;
+        halo.current.visible = blocked;
+        halo.current.scale.setScalar(blocked ? 1 + 0.35 * Math.sin(clock.current * 9) : 1);
+      }
+    }
+  });
+  return (
+    <group>
+      {tf && (
+        <group ref={chair}>
+          <mesh>
+            <sphereGeometry args={[0.9, 16, 12]} />
+            <meshBasicMaterial color={stopAt === null ? '#34d399' : '#f5b544'} toneMapped={false} />
+          </mesh>
+          <Html center position={[0, 3.2, 0]} zIndexRange={[28, 28]} style={{ pointerEvents: 'none' }}>
+            <div className={`ub-traveller ${stopAt === null ? 'is-ok' : ''}`}>
+              <Accessibility size={14} />
+            </div>
+          </Html>
+        </group>
+      )}
+      <group ref={walker}>
+        <mesh>
+          <sphereGeometry args={[0.7, 16, 12]} />
+          <meshBasicMaterial color="#eaf0f7" toneMapped={false} />
+        </mesh>
+        <mesh ref={halo} rotation-x={-Math.PI / 2} position={[0, -1.0, 0]}>
+          <ringGeometry args={[1.6, 2.3, 32]} />
+          <meshBasicMaterial color="#ff6a4d" toneMapped={false} transparent opacity={0.9} side={DoubleSide} />
+        </mesh>
+        <Html center position={[0, 2.8, 0]} zIndexRange={[27, 27]} style={{ pointerEvents: 'none' }}>
+          <div className="ub-traveller is-walk">
+            <Footprints size={13} />
+          </div>
+        </Html>
+      </group>
+    </group>
+  );
+}
+
+/** Walking route (dashed) against the step-free route (solid) for the selected journey, with two travellers. */
 export function JourneyRoutes() {
   const mode = useUnblock((s) => s.mode);
   const trip = useUnblock((s) => s.trip);
   const home = useUnblock((s) => s.home);
+  const pts = useMemo(() => {
+    const start = world.homes[home].node;
+    const walk = edgePts(trip.walkEdges, 0.5, start);
+    const free = trip.stepFreeEdges.length ? edgePts(trip.stepFreeEdges, 0.7, start) : null;
+    // where the short route meets its first barrier
+    let stopAt: number | null = null;
+    if (trip.blockers.length) {
+      const b = world.barriers[trip.blockers[0]];
+      const t = track(walk);
+      const q = new Vector3();
+      let best = Infinity;
+      for (let d = 0; d <= t.length; d += 0.5) {
+        t.at(d, q);
+        const dd = Math.hypot(q.x - b.x, q.z - b.z);
+        if (dd < best) {
+          best = dd;
+          stopAt = d;
+        }
+      }
+    }
+    return { walk, free, stopAt };
+  }, [trip, home]);
   if (mode !== 'journey') return null;
-  const start = world.homes[home].node;
-  const walk = edgePts(trip.walkEdges, 0.5, start);
-  const free = trip.stepFreeEdges.length ? edgePts(trip.stepFreeEdges, 0.7, start) : null;
+  const { walk, free, stopAt } = pts;
   const sameRoute = free && Math.abs(trip.stepFreeM - trip.walkM) < 1;
   return (
     <group>
       {walk.length > 1 && !sameRoute && <Line points={walk} color="#eaf0f7" lineWidth={3.5} dashed dashSize={1.8} gapSize={1.2} transparent opacity={0.9} toneMapped={false} />}
       {free && free.length > 1 && <Line points={free} color={sameRoute ? '#34d399' : '#f5b544'} lineWidth={7} toneMapped={false} />}
+      {walk.length > 1 && <Travellers walk={walk} free={free} stopAt={sameRoute ? null : stopAt} />}
     </group>
   );
 }
 
+const PULSE = new Color('#34d399');
+
+/** An expanding ring on the ground wherever a repair lands. */
+export function RepairPulses() {
+  const change = useUnblock((s) => s.change);
+  const group = useRef<Group>(null);
+  const rings = useRef<{ mesh: Mesh; born: number }[]>([]);
+  const geo = useMemo(() => new RingGeometry(0.86, 1, 64), []);
+  const clock = useRef(0);
+  useEffect(() => {
+    if (!change.nonce || !group.current) return;
+    const mat = new MeshBasicMaterial({ color: PULSE, transparent: true, toneMapped: false, depthWrite: false, blending: AdditiveBlending, side: DoubleSide });
+    const mesh = new Mesh(geo, mat);
+    mesh.rotation.x = -Math.PI / 2;
+    mesh.position.set(change.x, 0.3, change.z);
+    mesh.renderOrder = 6;
+    group.current.add(mesh);
+    rings.current.push({ mesh, born: clock.current });
+  }, [change, geo]);
+  useFrame((_, dt) => {
+    clock.current += Math.min(dt, 0.1);
+    rings.current = rings.current.filter((r) => {
+      const age = clock.current - r.born;
+      if (age > 1.6) {
+        r.mesh.removeFromParent();
+        (r.mesh.material as MeshBasicMaterial).dispose();
+        return false;
+      }
+      const u = age / 1.6;
+      r.mesh.scale.setScalar(2 + 22 * (1 - Math.pow(1 - u, 3)));
+      (r.mesh.material as MeshBasicMaterial).opacity = 0.95 * (1 - u);
+      return true;
+    });
+  });
+  return <group ref={group} />;
+}

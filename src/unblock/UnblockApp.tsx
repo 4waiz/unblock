@@ -7,6 +7,7 @@ import { useMediaQuery } from '../hooks/useMediaQuery';
 import { UnblockScene, OVERVIEW } from './three/UnblockScene';
 import { Header } from './ui/Header';
 import { AssumptionsPanel, ImpactPanel, JourneyPanel, OptimizerPanel, RepairsPanel } from './ui/Panels';
+import { SimulationCard } from './ui/SimulationCard';
 import { useUnblock } from './store';
 import '../styles/layout.css';
 import '../styles/panels.css';
@@ -58,6 +59,10 @@ export function UnblockApp() {
         {mode === 'planner' && <OptimizerPanel />}
         <AssumptionsPanel />
       </aside>
+
+      <div className="ub-sim-slot">
+        <SimulationCard />
+      </div>
 
       <a className="map-credit" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">
         {MAP_CREDIT} · Barriers and costs: made-up pilot data

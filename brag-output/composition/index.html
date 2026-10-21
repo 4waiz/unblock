@@ -50,10 +50,10 @@
   </div>
 
   <div class="cap" id="c3">One flight of stairs. <span class="bad">A 1.7 km detour.</span></div>
-  <div class="cap" id="c4">Repair it on the map first. <span class="ok">600 m again.</span></div>
-  <div class="cap" id="c5">Fix one crossing. Hospital access <span class="hi">62%</span> → <span class="ok">73%</span></div>
-  <div class="cap top" id="c6">Same budget. <span class="ok">More access</span> than cheapest-first.</div>
-  <div class="cap" id="c7"><span class="ok">59 more homes</span> can now reach a hospital.</div>
+  <div class="cap" id="c4">Fix it on the map first. <span class="ok">600 m again.</span></div>
+  <div class="cap" id="c5">One crossing. Hospital access <span class="hi">62%</span> → <span class="ok">73%</span></div>
+  <div class="cap top" id="c6">Give it a budget. <span class="hi">It simulates every repair.</span></div>
+  <div class="cap top" id="c7"><span class="ok">53 more homes</span> reach a hospital. <span class="hi">2.2×</span> cheapest-first.</div>
 
   <div class="layer brand outro" id="outro">
     <img src="assets/logo.png" alt="" id="logo2" />
@@ -65,7 +65,7 @@
 </div>
 
 <script>
-  const DURATION = 21.4;
+  const DURATION = 37.6;
   const FPS = 30;
   const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
   const easeOut = (u) => 1 - Math.pow(1 - clamp(u), 3);
@@ -76,12 +76,11 @@
 
   /* footage per scene: [start, end, clip time at start, speed, zoom {s, ox, oy}] */
   const SHOTS = [
-    { a: 0, b: 2.9, clip: 0.8, speed: 0.6, zoom: [1.12, 1.18], origin: '55% 40%', dim: 0.72, blur: 6 },
-    { a: 5.4, b: 7.8, clip: 4.7, speed: 1, zoom: [1.0, 1.08], origin: '52% 38%' },
-    { a: 7.8, b: 10.3, clip: 8.2, speed: 1, zoom: [1.0, 1.05], origin: '30% 45%' },
-    { a: 10.3, b: 14.0, clip: 19.2, speed: 1, zoom: [1.0, 1.06], origin: '50% 45%' },
-    { a: 14.0, b: 16.4, clip: 25.9, speed: 1, zoom: [1.9, 2.02], origin: '98% 99%' },
-    { a: 16.4, b: 18.6, clip: 28.5, speed: 1, zoom: [1.04, 1.0], origin: '50% 50%' },
+    { a: 0, b: 5.0, clip: 2.4, speed: 0.8, zoom: [1.1, 1.18], origin: '50% 38%', dim: 0.7, blur: 6 },
+    { a: 7.0, b: 12.4, clip: 2.31, speed: 1, zoom: [1.0, 1.1], origin: '50% 32%' },
+    { a: 12.6, b: 16.2, clip: 8.46, speed: 1, zoom: [1.08, 1.0], origin: '50% 32%' },
+    { a: 16.4, b: 22.4, clip: 13.17, speed: 1, zoom: [1.0, 1.06], origin: '50% 45%' },
+    { a: 22.6, b: 33.0, clip: 21.4, speed: 1, zoom: [1.0, 1.0], origin: '50% 100%', push: { at: 27.4, to: 1.32 } },
   ];
 
   const $ = (id) => document.getElementById(id);
@@ -103,7 +102,8 @@
     if (shot) {
       const u = (t - shot.a) / (shot.b - shot.a);
       await seek(shot.clip + (t - shot.a) * shot.speed);
-      const z = shot.zoom[0] + (shot.zoom[1] - shot.zoom[0]) * easeInOut(u);
+      let z = shot.zoom[0] + (shot.zoom[1] - shot.zoom[0]) * easeInOut(u);
+      if (shot.push) z += (shot.push.to - 1) * easeInOut((t - shot.push.at) / 1.4);
       const vw = $('vidwrap');
       vw.style.transformOrigin = shot.origin;
       vw.style.transform = `scale(${z})`;
@@ -115,24 +115,24 @@
     $('shade').style.opacity = shade.toFixed(3);
 
     // ---- hook ----
-    const hookO = 1 - clamp((t - 2.65) / 0.25);
-    $('hook').style.opacity = t < 2.9 ? hookO : 0;
-    const l1 = easeOut((t - 0.15) / 0.45), l2 = easeOut((t - 1.37) / 0.35);
+    const hookO = 1 - clamp((t - 4.75) / 0.25);
+    $('hook').style.opacity = t < 5.0 ? hookO : 0;
+    const l1 = easeOut((t - 0.3) / 0.45), l2 = easeOut((t - 3.4) / 0.35);
     $('h1').style.opacity = l1; $('h1').style.transform = `translateY(${(1 - l1) * 30}px)`;
     $('h2').style.opacity = l2; $('h2').style.transform = `translateY(${(1 - l2) * 24}px) scale(${0.96 + 0.04 * l2})`;
 
     // ---- brand reveal ----
-    const bo = t >= 2.9 && t < 5.4 ? window01(t, 2.95, 5.4, 0.2, 0.28) : 0;
+    const bo = t >= 5.0 && t < 7.0 ? window01(t, 5.05, 7.0, 0.2, 0.28) : 0;
     $('brand').style.opacity = bo;
-    const lg = back((t - 3.0) / 0.55);
-    $('logo').style.transform = `scale(${0.6 + 0.4 * lg}) rotate(${(1 - clamp((t - 3.0) / 0.55)) * -8}deg)`;
-    const wd = easeOut((t - 3.28) / 0.45);
+    const lg = back((t - 5.2) / 0.55);
+    $('logo').style.transform = `scale(${0.6 + 0.4 * lg}) rotate(${(1 - clamp((t - 5.2) / 0.55)) * -8}deg)`;
+    const wd = easeOut((t - 5.4) / 0.45);
     $('word').style.opacity = wd; $('word').style.transform = `translateY(${(1 - wd) * 26}px)`; $('word').style.letterSpacing = `${0.02 + (1 - wd) * 0.12}em`;
-    const tg = easeOut((t - 3.82) / 0.45);
+    const tg = easeOut((t - 5.85) / 0.4);
     $('tag').style.opacity = tg; $('tag').style.transform = `translateY(${(1 - tg) * 18}px)`;
 
     // ---- captions ----
-    const caps = [['c3', 5.55, 7.8], ['c4', 7.95, 10.3], ['c5', 10.75, 14.0], ['c6', 14.3, 16.4], ['c7', 16.65, 18.6]];
+    const caps = [['c3', 7.3, 12.4], ['c4', 12.85, 16.2], ['c5', 16.6, 22.4], ['c6', 22.8, 27.3], ['c7', 27.5, 33.0]];
     for (const [id, a, b] of caps) {
       const o = t >= a - 0.01 && t < b ? window01(t, a, b, 0.32, 0.2) : 0;
       const el = $(id);
@@ -141,18 +141,18 @@
     }
 
     // ---- outro ----
-    const oo = t >= 18.6 ? Math.min(easeOut((t - 18.62) / 0.3), 1 - clamp((t - 20.9) / 0.5)) : 0;
+    const oo = t >= 33.0 ? Math.min(easeOut((t - 33.05) / 0.3), 1 - clamp((t - 37.1) / 0.5)) : 0;
     $('outro').style.opacity = oo;
-    const lg2 = back((t - 18.65) / 0.55);
+    const lg2 = back((t - 33.1) / 0.55);
     $('logo2').style.transform = `scale(${0.7 + 0.3 * lg2})`;
-    const w2 = easeOut((t - 18.85) / 0.45);
+    const w2 = easeOut((t - 33.4) / 0.45);
     $('word2').style.opacity = w2; $('word2').style.transform = `translateY(${(1 - w2) * 22}px)`;
-    const ur = easeOut((t - 19.2) / 0.4);
+    const ur = easeOut((t - 34.6) / 0.4);
     $('url').style.opacity = ur; $('url').style.transform = `translateY(${(1 - ur) * 16}px)`;
-    $('fine').style.opacity = easeOut((t - 19.45) / 0.4) * 0.95;
+    $('fine').style.opacity = easeOut((t - 35.0) / 0.4) * 0.95;
 
     // a soft light pulse on the network moments
-    const flashAt = [10.38 + 0.0, 16.45];
+    const flashAt = [12.9, 18.43];
     $('flash').style.opacity = flashAt.reduce((m, f) => Math.max(m, t >= f ? Math.exp(-(t - f) * 6) * 0.18 : 0), 0).toFixed(3);
   }
 

@@ -42,5 +42,5 @@
 
 ## Visual QA
 
-- UNBLOCK: in dev, `await import('/src/unblock/store.ts')` gives `useUnblock` (wait for `ready`, then `setMode`, `focus(x,z,dist)`, `toggleRepair`, `runPlan`, `applyPlan`) and `world`.
+- UNBLOCK: in dev, `window.__ub` is the `useUnblock` store and `window.__ubWorld` the world (don't import the module from the console: after an HMR edit you get a second copy) (wait for `ready`, then `setMode`, `focus(x,z,dist)`, `toggleRepair`, `runPlan`, `applyPlan`) and `world`.
 - Headless screenshots need real-time waits (shader warm-up). Drive Chrome over CDP and use the dev hooks: `window.__dev.store.getState()` (`setBoot('ready')`, `run()`, `seek(t)`, `setSpendLimit(v)`), `__dev.runtime.t`, `__mapIntroAt(ms)` for the map intro.

@@ -117,8 +117,8 @@ export function AccessNetwork() {
     const delay = geometry.getAttribute('aDelay') as BufferAttribute;
     const first = !painted.has(geometry);
     painted.add(geometry);
-    // start from what is on screen now: the previous target once its sweep has finished
-    const settled = clock.current - t0.current > 2.5;
+    // start from exactly what is on screen now, so rapid repairs (a simulation run) chain smoothly
+    const elapsed = clock.current - t0.current;
     states.forEach((st, i) => {
       const c = st === 0 ? REACH : st === 1 ? CUT : FAR;
       const e = world.g.edges[i];
@@ -128,7 +128,10 @@ export function AccessNetwork() {
       for (let v = 0; v < 4; v++) {
         const j = i * 4 + v;
         if (first) from.setXYZ(j, c.r, c.g, c.b);
-        else if (settled) from.setXYZ(j, to.getX(j), to.getY(j), to.getZ(j));
+        else {
+          const k = Math.min(1, Math.max(0, (elapsed - delay.getX(j)) / 0.45));
+          from.setXYZ(j, from.getX(j) + (to.getX(j) - from.getX(j)) * k, from.getY(j) + (to.getY(j) - from.getY(j)) * k, from.getZ(j) + (to.getZ(j) - from.getZ(j)) * k);
+        }
         to.setXYZ(j, c.r, c.g, c.b);
         delay.setX(j, d);
       }

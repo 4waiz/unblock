@@ -40,6 +40,10 @@ interface State {
   budget: number;
   plan: PlanResult | null;
   planning: boolean;
+  /** a running simulation: the plan's repairs applied one by one */
+  sim: { ids: number[]; step: number; done: boolean } | null;
+  /** when each barrier was repaired (ms, performance.now), for the pop on the map */
+  repairedAt: Record<number, number>;
 
   // derived, recomputed on every change
   weights: number[];
@@ -58,6 +62,8 @@ interface State {
   setSettings: (s: Partial<Settings>) => void;
   toggleRepair: (id: number) => void;
   applyPlan: (ids: number[]) => void;
+  /** apply repairs one at a time, each rippling out from its barrier */
+  simulate: (ids: number[], stepMs?: number) => () => void;
   resetRepairs: () => void;
   setHome: (id: number) => void;
   setDestination: (id: number) => void;
@@ -104,6 +110,8 @@ export const useUnblock = create<State>((set, get) => {
     budget: 500_000,
     plan: null,
     planning: false,
+    sim: null,
+    repairedAt: {},
     ...derive(initial),
     change: { nonce: 0, x: 0, z: 0 },
     camera: { nonce: 0, x: 0, z: 0, dist: 0 },
@@ -119,7 +127,8 @@ export const useUnblock = create<State>((set, get) => {
     toggleRepair: (id) => {
       const r = get().repaired;
       const b = w.barriers[id];
-      recompute({ repaired: r.includes(id) ? r.filter((x) => x !== id) : [...r, id] }, b);
+      const on = !r.includes(id);
+      recompute({ repaired: on ? [...r, id] : r.filter((x) => x !== id), repairedAt: on ? { ...get().repairedAt, [id]: performance.now() } : get().repairedAt }, b);
     },
     applyPlan: (ids) => {
       const r = new Set(get().repaired);
@@ -128,7 +137,23 @@ export const useUnblock = create<State>((set, get) => {
       const c = pts.length ? { x: pts.reduce((a, b) => a + b.x, 0) / pts.length, z: pts.reduce((a, b) => a + b.z, 0) / pts.length } : { x: 0, z: 0 };
       recompute({ repaired: [...r] }, c);
     },
-    resetRepairs: () => recompute({ repaired: [], plan: null }, { x: 0, z: 0 }),
+    simulate: (ids, stepMs = 520) => {
+      const todo = ids.filter((id) => !get().repaired.includes(id));
+      const timers: number[] = [];
+      set({ sim: { ids: todo, step: 0, done: false } });
+      todo.forEach((id, i) => {
+        timers.push(
+          window.setTimeout(() => {
+            const b = w.barriers[id];
+            recompute({ repaired: [...get().repaired, id], repairedAt: { ...get().repairedAt, [id]: performance.now() }, sim: { ids: todo, step: i + 1, done: false } }, b);
+          }, 250 + i * stepMs),
+        );
+      });
+      timers.push(window.setTimeout(() => set({ sim: { ids: todo, step: todo.length, done: true } }), 250 + todo.length * stepMs + 200));
+      timers.push(window.setTimeout(() => set({ sim: null }), 250 + todo.length * stepMs + 4200));
+      return () => timers.forEach((t) => clearTimeout(t));
+    },
+    resetRepairs: () => recompute({ repaired: [], plan: null, sim: null, repairedAt: {} }, { x: 0, z: 0 }),
     setHome: (home) => recompute({ home }),
     setDestination: (destination) => recompute({ destination }),
     select: (selected) => set({ selected }),
@@ -151,3 +176,6 @@ export const useUnblock = create<State>((set, get) => {
 });
 
 export const world = w;
+
+// dev hook for scripted screenshots and recordings: window.__ub.getState()
+if (import.meta.env.DEV) Object.assign(window, { __ub: useUnblock, __ubWorld: w });
